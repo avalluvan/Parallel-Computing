@@ -28,8 +28,8 @@ float* read_hdf5_dataset(const char* filename, const char* dataset_name, hsize_t
     }
 
     // Set xf for parallel HDF5
-    xf_id = H5Pcreate(H5P_DATASET_XFER);
-    H5Pset_dxpl_mpio(xf_id, H5FD_MPIO_COLLECTIVE);
+    // xf_id = H5Pcreate(H5P_DATASET_XFER);
+    // H5Pset_dxpl_mpio(xf_id, H5FD_MPIO_COLLECTIVE);
 
     // Get the dataspace
     dataspace_id = H5Dget_space(dataset_id);
