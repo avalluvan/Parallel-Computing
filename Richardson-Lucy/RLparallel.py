@@ -15,9 +15,9 @@ MAXITER = 10   # Maximum number of iterations
 Response matrix
 '''
 def load_response_matrix(comm, start_row, end_row, filename='example.h5'):
-    with h5py.File(filename, "r", driver="mpio", comm=comm) as f:
+    with h5py.File(filename, "r", driver="mpio", comm=comm) as f1:
         # Assuming the dataset name is "response_matrix"
-        dataset = f["response_matrix"]
+        dataset = f1["response_matrix"]
         R = dataset[start_row:end_row, :]
     return R
 
@@ -25,35 +25,39 @@ def load_response_matrix(comm, start_row, end_row, filename='example.h5'):
 Response matrix transpose
 '''
 def load_response_matrix_transpose(comm, start_col, end_col, filename='example.h5'):
-    with h5py.File(filename, "r", driver="mpio", comm=comm) as f:
+    with h5py.File(filename, "r", driver="mpio", comm=comm) as f1:
         # Assuming the dataset name is "response_matrix"
-        dataset = f["response_matrix"]
+        dataset = f1["response_matrix"]
         RT = dataset[:, start_col:end_col]
     return RT
 
 '''
 Response matrix summed along axis=i
 '''
-def load_axis0_summed_response_matrix(comm):
-    R = load_response_matrix(comm=comm, start_row=0, end_row=NUMROWS)
-    Rj = np.sum(R, axis=0)               # TODO: This should be precomputed and stored in a .h5 file
+def load_axis0_summed_response_matrix(filename='example_axis0_summed.h5'):
+    print('Debug')
+    with h5py.File(filename, "r") as f2:
+        # Assuming the dataset name is "response_matrix"
+        dataset = f2["response_vector"]
+        Rj = dataset[:]
     return Rj
 
 '''
 Sky model
 '''
 def load_sky_model():
-    M0 = np.arange(1, NUMCOLS + 1, dtype=np.float64)      # --> Old test case
-    # M0 = np.ones(NUMCOLS, dtype=np.float64)                 # <-- New test case
+    # M0 = np.arange(1, NUMCOLS + 1, dtype=np.float64)     # --> Old test case
+    M0 = np.ones(NUMCOLS, dtype=np.float64)                # <-- New test case
     return M0
 
 '''
 Observed data
 '''
 def load_obs_counts():
-    d0 = np.ones(NUMROWS, dtype=np.float64)               # --> Old test case
-    # d0 = np.zeros(NUMROWS, dtype=np.float64)                # <-- New test case
+    # d0 = np.ones(NUMROWS, dtype=np.float64)              # --> Old test case
+    d0 = np.zeros(NUMROWS, dtype=np.float64)               # <-- New test case
     d0[0] = 1
+    d0[34] = 1
     return d0
 
 def main():
@@ -63,9 +67,10 @@ def main():
     taskid = comm.Get_rank()
 
     # Initialise vectors required by all processes
-    M = np.empty(NUMCOLS, dtype=np.float64)     # Will be loaded and broadcasted by master. 
-    d = np.empty(NUMROWS, dtype=np.float64)     # Will be loaded and broadcasted by master. 
-    epsilon = np.zeros(NUMROWS)                 # Will be "All gatherv-ed".
+    M = np.empty(NUMCOLS, dtype=np.float64)     # Loaded and broadcasted by master. 
+    d = np.empty(NUMROWS, dtype=np.float64)     # Loaded and broadcasted by master. 
+    epsilon = np.zeros(NUMROWS)                 # "All gatherv-ed".
+    epsilon_BG = 1e-3                           # Fudge parameter to avoid 0/0 error
 
     # Calculate the indices in Rij that the process has to parse. My hunch is that calculating these scalars individually will be faster than the MPI send broadcast overhead
     averow = NUMROWS // numtasks
@@ -137,7 +142,7 @@ def main():
 
         # Calculate epsilon slice
         R = load_response_matrix(comm, start_row, end_row)
-        epsilon_slice = np.dot(R, M)      # XXX: Can be GPU accelerated
+        epsilon_slice = np.dot(R, M) + epsilon_BG      # XXX: Can be GPU accelerated
 
         '''Allgatherv'''
         # All vector gather epsilon slices
@@ -146,9 +151,10 @@ def main():
         comm.Allgatherv(epsilon_slice, [epsilon, recvcounts, displacements, MPI.DOUBLE])
 
         # Sanity check: print epsilon
-        if taskid == MASTER:
-            print(epsilon)
-            print()
+        # if taskid == MASTER:
+        #     print('epsilon')
+        #     print(epsilon)
+        #     print()
 
 # **************************** Part IIb *****************************
 
@@ -164,8 +170,8 @@ def main():
 
         # Calculate C slice
         RT = load_response_matrix_transpose(comm, start_col, end_col)
-        C_slice = np.dot(RT.T, 1/epsilon)       # XXX: Can be GPU accelerated
         # C_slice = np.dot(RT.T, d/epsilon - 1)       # XXX: Can be GPU accelerated
+        C_slice = np.dot(RT.T, d/epsilon)       # XXX: Can be GPU accelerated
 
         '''Gatherv'''
         # All vector gather C slices
@@ -178,18 +184,36 @@ def main():
     # Update M vector
 
         # Sanity check: print C
-        if taskid == MASTER:
-            print(C)
-            print()
+        # if taskid == MASTER:
+        #     print('C')
+        #     print(C)
+        #     print()
 
         # Iterative update of M vector
         if taskid == MASTER:
+            # Load Rj vector (response matrix summed along axis=i)
+            Rj = load_axis0_summed_response_matrix()
+            # delta = np.dot(C, 1/Rj)
+            # M = M + delta * M
+            M = C / Rj * M
+
+            # Sanity check: print M
+            # print('M')
+            # print(M)
 
             # Pretty print - completion
             print(linebreak_dashes)
             print(f"Completed iteration {iter + 1}")
             print(linebreak_dashes)
             print(linebreak_stars)
+
+            # MAXITER
+            if iter == (MAXITER - 1):
+                print(f'Reached maximum iterations = {MAXITER}')
+
+    # Print converged M
+    print('M')
+    print(M)
 
     # MPI Shutdown
     MPI.Finalize()
