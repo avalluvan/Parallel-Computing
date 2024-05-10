@@ -12,6 +12,7 @@ void read_row_chunks_parallel(const char* filename, const char* dataset_name, MP
     hsize_t dims[2];
     herr_t status;
     int rank, size;
+    int averow, extra_rows, offset_rows;
 
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &size);
@@ -26,7 +27,7 @@ void read_row_chunks_parallel(const char* filename, const char* dataset_name, MP
     }
 
     // Only the master process opens the HDF5 file
-    if (rank == MASTER) {
+    // if (rank == MASTER) {
 
         // Open the dataset
         dataset_id = H5Dopen(file_id, dataset_name, H5P_DEFAULT);
@@ -38,28 +39,35 @@ void read_row_chunks_parallel(const char* filename, const char* dataset_name, MP
 
         // Get the dimensions of the dataset
         dataspace_id = H5Dget_space(dataset_id);
-        if (dataspace_id < 0) {
-            fprintf(stderr, "Error getting dataspace for dataset: %s\n", dataset_name);
+        status = H5Sget_simple_extent_dims(dataspace_id, dims, NULL);
+        if (status < 0) {
+            fprintf(stderr, "Error getting dataspace dimensions\n");
             H5Dclose(dataset_id);
             H5Fclose(file_id);
             MPI_Abort(comm, 1);
         }
-        H5Sget_simple_extent_dims(dataspace_id, dims, NULL);
-    }
+    // }
 
     // Broadcast the dimensions to all processes
-    MPI_Bcast(&file_id, 1, MPI_UNSIGNED_LONG_LONG, MASTER, comm);
-    MPI_Bcast(&dataset_id, 1, MPI_UNSIGNED_LONG_LONG, MASTER, comm);
-    MPI_Bcast(dims, 2, MPI_UNSIGNED_LONG_LONG, MASTER, comm);
+    // MPI_Bcast(&file_id, 1, MPI_UNSIGNED_LONG_LONG, MASTER, comm);
+    // MPI_Bcast(&dataset_id, 1, MPI_UNSIGNED_LONG_LONG, MASTER, comm);
+    // MPI_Bcast(dims, 2, MPI_UNSIGNED_LONG_LONG, MASTER, comm);
 
     // Determine the chunk size for each process
     int numworkers = size - 1;
     hsize_t chunk_size = dims[0] / numworkers;      /* The chunk size is calculated based on the number of worker processes 
                                                     and the total number of rows in the dataset (dims[0]).
                                                     Each process will read a chunk of rows from the dataset. */
-    // printf("Dimensions %llu, %llu", dims[0], dims[1]);   // Correctly prints 50, 50
+    printf("Dimensions %llu, %llu", dims[0], dims[1]);   // Correctly prints 50, 50
     hsize_t start[2] = {(rank - 1) * chunk_size, 0};  // start[0]: starting row, start[1]: starting column (always 0)
     hsize_t count[2] = {chunk_size, dims[1]};   // FIXME: Needs to be made variable based on divisibility of #rows by #worker processes
+    // averow = dims[0] / numworkers;
+    // extra_rows = dims[0] % numworkers;
+    // if (rank <= extra_rows)
+    //     averow += 1;
+    // hsize_t start[2] = {, 0};
+    printf("Taskid: %d, Start: %llu, %llu\n", rank, start[0], start[1]);   
+    printf("Taskid: %d, Count: %llu, %llu\n", rank, count[0], count[1]);   
 
     // Create a memory hyperslab for each process
     hyperslab_id = H5Screate_simple(2, count, NULL);
@@ -71,7 +79,7 @@ void read_row_chunks_parallel(const char* filename, const char* dataset_name, MP
     [in]	rank	Number of dimensions of dataspace
     [in]	dims	Array specifying the size of each dimension
     [in]	maxdims	Array specifying the maximum size of each dimension */
-    H5Sselect_hyperslab(hyperslab_id, H5S_SELECT_SET, start, NULL, count, NULL);
+    // H5Sselect_hyperslab(hyperslab_id, H5S_SELECT_SET, start, NULL, count, NULL);
 
     // Allocate memory for the chunk (2D array of floats)
     float** chunk_data = (float**)malloc(count[0] * sizeof(float*));
@@ -79,9 +87,15 @@ void read_row_chunks_parallel(const char* filename, const char* dataset_name, MP
         chunk_data[i] = (float*)malloc(count[1] * sizeof(float));
     }
 
+    printf("Task ID: %d, Mem Addr: %p\n", rank, &chunk_data);
+
     // Read data from the dataset (workers only)
     if (rank != MASTER) {
         status = H5Dread(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, chunk_data[0]);
+        if (status < 0) {
+            fprintf(stderr, "Error reading data from dataset.\n");
+            // Handle the error (e.g., cleanup and return)
+        }
         // Process the chunk (e.g., compute statistics, etc.)
         // ...
         // Print the data
@@ -89,9 +103,9 @@ void read_row_chunks_parallel(const char* filename, const char* dataset_name, MP
             for (int j = 0; j < dims[1]; ++j) {
                 // printf("%.2f ", *chunk_data[i * dims[1] + j]);
             }
-            printf("\n");
+            // printf("\n");
         }
-        printf("DEBUG %d\n", rank);
+        // printf("DEBUG %d\n", rank);
     }
 
     // Clean up

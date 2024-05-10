@@ -13,6 +13,10 @@ float* read_hdf5_dataset(const char *filename, const char *dataset_name, hsize_t
     herr_t status;
     float* data;
 
+    // int numtasks, taskid;
+    // MPI_Comm_rank(comm, &taskid);      // What is my task ID?
+    // MPI_Comm_size(comm, &numtasks);    // How many tasks are there?
+
     // Create a file access property list
     fapl_id = H5Pcreate(H5P_FILE_ACCESS);
 
@@ -82,9 +86,7 @@ int main(int argc, char *argv[])
         taskid;   // a task identifier
 
     MPI_Status status;          // Status flag for MPI_RECV calls
-    // MPI_Info info;              // FIXME: What is this really for?
     MPI_Init(&argc,&argv);      // Initialise MPI
-    // MPI_Info_create(&info);     // MPI hints: the key and value are strings
     MPI_Comm_rank(MPI_COMM_WORLD, &taskid);      // What is my task ID?
     MPI_Comm_size(MPI_COMM_WORLD, &numtasks);    // How many tasks are there?
 
@@ -96,6 +98,7 @@ int main(int argc, char *argv[])
     if (data) {
         // Print the data (you can modify this part as needed)
         for (int i = 0; i < dims[0]; ++i) {
+            printf("%d | ", taskid);
             for (int j = 0; j < dims[1]; ++j) {
                 printf("%.2f ", data[i * dims[1] + j]);
             }
