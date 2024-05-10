@@ -35,7 +35,6 @@ def load_response_matrix_transpose(comm, start_col, end_col, filename='example.h
 Response matrix summed along axis=i
 '''
 def load_axis0_summed_response_matrix(filename='example_axis0_summed.h5'):
-    print('Debug')
     with h5py.File(filename, "r") as f2:
         # Assuming the dataset name is "response_matrix"
         dataset = f2["response_vector"]
@@ -97,14 +96,17 @@ def main():
         linebreak_stars = '**********************'
         linebreak_dashes = '----------------------'
 
-        # Initialise C vector. Only master requires full length.
-        C = np.empty(NUMCOLS, dtype=np.float64)
-
         # Load sky model input
         M = load_sky_model()
 
         # Load observed data counts
         d = load_obs_counts()
+
+        # Initialise C vector. Only master requires full length.
+        C = np.empty(NUMCOLS, dtype=np.float64)
+
+        # Initialise update delta vector
+        delta = np.empty(NUMCOLS, dtype=np.float64)
 
     '''*************** Worker ***************'''
 
@@ -128,9 +130,7 @@ def main():
         '''*************** Master ***************'''
         if taskid == MASTER:
             # Pretty print - starting
-            print(linebreak_dashes)
             print(f"Starting iteration {iter + 1}")
-            print(linebreak_dashes)
 
         '''**************** All *****************'''
 
@@ -193,27 +193,28 @@ def main():
         if taskid == MASTER:
             # Load Rj vector (response matrix summed along axis=i)
             Rj = load_axis0_summed_response_matrix()
-            # delta = np.dot(C, 1/Rj)
-            # M = M + delta * M
-            M = C / Rj * M
+            delta = C / Rj - 1
+            M = M + delta * M           # To allow for future revisions similar to Siegert et al. 2020
+            # M = C / Rj * M            # Basic version
 
             # Sanity check: print M
             # print('M')
             # print(M)
 
             # Pretty print - completion
+            print(f"Done")
             print(linebreak_dashes)
-            print(f"Completed iteration {iter + 1}")
-            print(linebreak_dashes)
-            print(linebreak_stars)
 
             # MAXITER
             if iter == (MAXITER - 1):
                 print(f'Reached maximum iterations = {MAXITER}')
+                print(linebreak_stars)
+                print()
 
     # Print converged M
-    print('M')
-    print(M)
+    if taskid == MASTER:
+        print('Converged M vector:')
+        print(np.round(M, 2))
 
     # MPI Shutdown
     MPI.Finalize()
