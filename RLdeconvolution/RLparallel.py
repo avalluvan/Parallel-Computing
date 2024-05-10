@@ -37,6 +37,7 @@ def main():
 
     # Calculate the indices in Rij that the node has to parse. My hunch is that calculating these scalars individually will be faster than the MPI send broadcast overhead
     averow = NUMROWS // numtasks
+    extra_rows = NUMROWS % numtasks
     start_row = taskid * averow
     end_row = (taskid + 1) * averow if taskid < (numtasks - 1) else NUMROWS   # Provision to eventually remove criteria 1
     # print(f"taskid {taskid}, endrow {end_row}")
@@ -59,7 +60,9 @@ def main():
     epsilon_slice = np.dot(R, M)      # XXX: Can be GPU accelerated
 
     # All gather epsilon slices
-    comm.Allgatherv(epsilon_slice, [epsilon, [averow] * numtasks, (np.arange(numtasks) * averow).tolist(), MPI.DOUBLE])
+    recvcounts = [averow] * (numtasks-1) + [averow + extra_rows]
+    displacements = np.arange(numtasks) * averow
+    comm.Allgatherv(epsilon_slice, [epsilon, recvcounts, displacements, MPI.DOUBLE])
 
     if taskid == 0:
         print(epsilon)
