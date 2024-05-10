@@ -32,6 +32,11 @@ def load_sky_model():
     M = np.arange(1, NUMCOLS + 1, dtype=np.float64)
     return M
 
+def load_obs_counts():
+    # Load the observed data model (d) with just 1's
+    d = np.ones(NUMROWS, dtype=np.float64)
+    return d
+
 def main():
     # Set up MPI
     comm = MPI.COMM_WORLD
@@ -40,6 +45,7 @@ def main():
 
     # Initialise vectors required by all processes
     M = np.empty(NUMCOLS, dtype=np.float64)     # Will be loaded and broadcasted by master. 
+    d = np.empty(NUMROWS, dtype=np.float64)     # Will be loaded and broadcasted by master. 
     epsilon = np.zeros(NUMROWS)                 # Will be "All gatherv-ed".
 
 # ****************************** MPI ******************************
@@ -57,6 +63,9 @@ def main():
 
         # Load sky model input
         M = load_sky_model()
+
+        # Load observed data counts
+        d = load_obs_counts()
 
     '''*************** Worker ***************'''
 
@@ -76,6 +85,7 @@ def main():
     start_row = taskid * averow
     end_row = (taskid + 1) * averow if taskid < (numtasks - 1) else NUMROWS
 
+    # Initialise epsilon_slice
     epsilon_slice = np.zeros(end_row - start_row)
 
     # Calculate epsilon slice
@@ -94,15 +104,23 @@ def main():
 
 # **************************** Part II *****************************
     
+    '''**************** All *****************'''
+
     # Calculate the indices in Rji that the process has to parse.
     avecol = NUMCOLS // numtasks
     extra_cols = NUMCOLS % numtasks
     start_col = taskid * avecol
     end_col = (taskid + 1) * avecol if taskid < (numtasks - 1) else NUMCOLS
 
+    # Broadcast d vector
+    comm.Bcast([d, MPI.DOUBLE], root=MASTER)
+
+    # Initialise C_slice
+    C_slice = np.zeros(end_col - start_col)
+
     # Calculate C slice
     RT = load_response_matrix_transpose(comm, start_col, end_col)
-    C_slice = np.dot(RT.T, 1/epsilon)
+    C_slice = np.dot(RT.T, d/epsilon)       # XXX: Can be GPU accelerated
 
     # All vector gather C slices
     recvcounts = [avecol] * (numtasks-1) + [avecol + extra_cols]
