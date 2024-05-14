@@ -123,6 +123,7 @@ def main():
 
 # **************************** Part IIa *****************************
 
+    '''***************** Begin Iterative Segment *****************'''
     # Set up initial values for iterating variables.
     # Exit if:
     ## 1. Max iterations are reached
@@ -215,6 +216,8 @@ def main():
                 print(f'Reached maximum iterations = {MAXITER}')
                 print(linebreak_stars)
                 print()
+    
+    '''****************** End Iterative Segment ******************'''
 
     # Print converged M
     if taskid == MASTER:
