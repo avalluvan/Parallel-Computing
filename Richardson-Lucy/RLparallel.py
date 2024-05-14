@@ -119,6 +119,9 @@ def main():
         # Initialise C vector to None. Only master requires full length.
         C = None
 
+    # Broadcast d vector
+    comm.Bcast([d, MPI.DOUBLE], root=MASTER)
+
     # print(f"taskid {taskid}, arr {arr}")
 
 # **************************** Part IIa *****************************
@@ -169,10 +172,6 @@ def main():
     
         '''**************** All *****************'''
 
-        '''Synchronization Barrier 3'''
-        # Broadcast d vector
-        comm.Bcast([d, MPI.DOUBLE], root=MASTER)
-
         # Initialise C_slice
         C_slice = np.zeros(end_col - start_col)
 
@@ -180,7 +179,7 @@ def main():
         RT = load_response_matrix_transpose(comm, start_col, end_col)
         C_slice = np.dot(RT.T, d/epsilon)       # TODO: Can be GPU accelerated
 
-        '''Synchronization Barrier 4'''
+        '''Synchronization Barrier 3'''
         # All vector gather C slices
         recvcounts = [avecol] * (numtasks-1) + [avecol + extra_cols]
         displacements = np.arange(numtasks) * avecol
