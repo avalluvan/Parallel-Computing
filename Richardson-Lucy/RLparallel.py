@@ -36,7 +36,7 @@ Response matrix summed along axis=i
 '''
 def load_axis0_summed_response_matrix(filename='example_axis0_summed.h5'):
     with h5py.File(filename, "r") as f2:
-        # Assuming the dataset name is "response_matrix"
+        # Assuming the dataset name is "response_vector"
         dataset = f2["response_vector"]
         Rj = dataset[:]
     return Rj
@@ -45,18 +45,16 @@ def load_axis0_summed_response_matrix(filename='example_axis0_summed.h5'):
 Sky model
 '''
 def load_sky_model():
-    # M0 = np.arange(1, NUMCOLS + 1, dtype=np.float64)     # --> Old test case
-    M0 = np.ones(NUMCOLS, dtype=np.float64)                # <-- New test case
+    M0 = np.ones(NUMCOLS, dtype=np.float64)                 # Initial guess
     return M0
 
 '''
 Observed data
 '''
 def load_obs_counts():
-    # d0 = np.ones(NUMROWS, dtype=np.float64)              # --> Old test case
-    d0 = np.zeros(NUMROWS, dtype=np.float64)               # <-- New test case
+    d0 = np.zeros(NUMROWS, dtype=np.float64)                # Point-source injection
     randint = np.random.randint(0, NUMROWS)
-    d0[0] = 1
+    d0[randint] = 1
     return d0
 
 def main():
@@ -68,16 +66,16 @@ def main():
     # Initialise vectors required by all processes
     M = np.empty(NUMCOLS, dtype=np.float64)     # Loaded and broadcasted by master. 
     d = np.empty(NUMROWS, dtype=np.float64)     # Loaded and broadcasted by master. 
-    epsilon = np.zeros(NUMROWS)                 # "All gatherv-ed".
+    epsilon = np.zeros(NUMROWS)                 # All gatherv-ed.
     epsilon_BG = 1e-3                           # Fudge parameter to avoid 0/0 error
 
-    # Calculate the indices in Rij that the process has to parse. My hunch is that calculating these scalars individually will be faster than the MPI send broadcast overhead
+    # Calculate the indices in Rij that the process has to parse. My hunch is that calculating these scalars individually will be faster than the MPI send broadcast overhead.
     averow = NUMROWS // numtasks
     extra_rows = NUMROWS % numtasks
     start_row = taskid * averow
     end_row = (taskid + 1) * averow if taskid < (numtasks - 1) else NUMROWS
 
-    # Calculate the indices in Rji that the process has to parse.
+    # Calculate the indices in Rji, i.e., Rij transpose, that the process has to parse.
     avecol = NUMCOLS // numtasks
     extra_cols = NUMCOLS % numtasks
     start_col = taskid * avecol
@@ -86,8 +84,6 @@ def main():
 # ****************************** MPI ******************************
 
 # **************************** Part I *****************************
-
-    # Set up initial values for iterating variables
 
     '''*************** Master ***************'''
 
@@ -102,6 +98,14 @@ def main():
         # Load observed data counts
         d = load_obs_counts()
 
+        # Sanity check: print d
+        print()
+        print('Observed data counts d vector:')
+        print(d)
+        ## Pretty print
+        print()
+        print(linebreak_stars)
+
         # Initialise C vector. Only master requires full length.
         C = np.empty(NUMCOLS, dtype=np.float64)
 
@@ -111,7 +115,7 @@ def main():
     '''*************** Worker ***************'''
 
     if taskid > MASTER:
-        # Only separate if... clause for NON-MASTER in this toy model
+        # Only separate if... clause for NON-MASTER processes. 
         # Initialise C vector to None. Only master requires full length.
         C = None
 
@@ -119,10 +123,8 @@ def main():
 
 # **************************** Part IIa *****************************
 
-    # Calculate epsilon vector and all gatherv
-
-    # Loop over iterations
-    # Exit if
+    # Set up initial values for iterating variables.
+    # Exit if:
     ## 1. Max iterations are reached
     ## 2. M vector converges
     for iter in range(MAXITER):
@@ -132,8 +134,12 @@ def main():
             # Pretty print - starting
             print(f"Starting iteration {iter + 1}")
 
+
+    # Calculate epsilon vector and all gatherv
+
         '''**************** All *****************'''
 
+        '''Synchronization Barrier 1'''
         # Broadcast M vector
         comm.Bcast([M, MPI.DOUBLE], root=MASTER)
 
@@ -144,7 +150,7 @@ def main():
         R = load_response_matrix(comm, start_row, end_row)
         epsilon_slice = np.dot(R, M) + epsilon_BG      # XXX: Can be GPU accelerated
 
-        '''Allgatherv'''
+        '''Synchronization Barrier 2'''
         # All vector gather epsilon slices
         recvcounts = [averow] * (numtasks-1) + [averow + extra_rows]
         displacements = np.arange(numtasks) * averow
@@ -162,6 +168,7 @@ def main():
     
         '''**************** All *****************'''
 
+        '''Synchronization Barrier 3'''
         # Broadcast d vector
         comm.Bcast([d, MPI.DOUBLE], root=MASTER)
 
@@ -170,10 +177,9 @@ def main():
 
         # Calculate C slice
         RT = load_response_matrix_transpose(comm, start_col, end_col)
-        # C_slice = np.dot(RT.T, d/epsilon - 1)       # XXX: Can be GPU accelerated
-        C_slice = np.dot(RT.T, d/epsilon)       # XXX: Can be GPU accelerated
+        C_slice = np.dot(RT.T, d/epsilon)       # TODO: Can be GPU accelerated
 
-        '''Gatherv'''
+        '''Synchronization Barrier 4'''
         # All vector gather C slices
         recvcounts = [avecol] * (numtasks-1) + [avecol + extra_cols]
         displacements = np.arange(numtasks) * avecol
@@ -194,8 +200,7 @@ def main():
             # Load Rj vector (response matrix summed along axis=i)
             Rj = load_axis0_summed_response_matrix()
             delta = C / Rj - 1
-            M = M + delta * M           # To allow for future revisions similar to Siegert et al. 2020
-            # M = C / Rj * M            # Basic version
+            M = M + delta * M           # Allows for optimization features presented in Siegert et al. 2020
 
             # Sanity check: print M
             # print('M')
@@ -215,6 +220,7 @@ def main():
     if taskid == MASTER:
         print('Converged M vector:')
         print(np.round(M, 2))
+        print()
 
     # MPI Shutdown
     MPI.Finalize()
