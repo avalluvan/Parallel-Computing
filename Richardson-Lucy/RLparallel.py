@@ -55,8 +55,8 @@ Observed data
 def load_obs_counts():
     # d0 = np.ones(NUMROWS, dtype=np.float64)              # --> Old test case
     d0 = np.zeros(NUMROWS, dtype=np.float64)               # <-- New test case
+    randint = np.random.randint(0, NUMROWS)
     d0[0] = 1
-    d0[34] = 1
     return d0
 
 def main():
