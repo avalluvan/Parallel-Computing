@@ -81,6 +81,11 @@ def main():
     start_col = taskid * avecol
     end_col = (taskid + 1) * avecol if taskid < (numtasks - 1) else NUMCOLS
 
+    # Load R and RT into memory (single time if response matrix doesn't 
+    # change with time)
+    R = load_response_matrix(comm, start_row, end_row)
+    RT = load_response_matrix_transpose(comm, start_col, end_col)
+
 # ****************************** MPI ******************************
 
 # **************************** Part I *****************************
@@ -151,7 +156,6 @@ def main():
         epsilon_slice = np.zeros(end_row - start_row)
 
         # Calculate epsilon slice
-        R = load_response_matrix(comm, start_row, end_row)
         epsilon_slice = np.dot(R, M) + epsilon_BG      # XXX: Can be GPU accelerated
 
         '''Synchronization Barrier 2'''
@@ -176,7 +180,6 @@ def main():
         C_slice = np.zeros(end_col - start_col)
 
         # Calculate C slice
-        RT = load_response_matrix_transpose(comm, start_col, end_col)
         C_slice = np.dot(RT.T, d/epsilon)       # TODO: Can be GPU accelerated
 
         '''Synchronization Barrier 3'''
