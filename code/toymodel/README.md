@@ -20,5 +20,5 @@ To execute the pipeline on a local computer, ensure that the python environment 
 ```
 $ conda activate <venv>       # activate your python environment
 $ export TMPDIR=/tmp          # truncation can occur on MacOS with the default TMPDIR
-$ mpiexec -n <numproc> python RLparallel.py     # run the code with the intended number of nodes
+$ mpiexec -n <numproc> python toy_RLparallel.py     # run the code with the intended number of nodes
 ```

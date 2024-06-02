@@ -44,14 +44,10 @@ def FileExists(datapath, filename='Ti44_CasA_3months_unbinned_data.fits', wasabi
 
 def FileCheck():
     # Checking source files
-    FileExists(datapath=DATA_DIR, filename='Ti44_CasA_3months_unbinned_data.fits', 
-              wasabi_path=WASABI_DIR / 'Data/Sources/')
-    FileExists(datapath=DATA_DIR, filename='Ti44_G1903_3months_unbinned_data.fits', 
-              wasabi_path=WASABI_DIR / 'Data/Sources/')
-    FileExists(datapath=DATA_DIR, filename='Ti44_SN1987A_3months_unbinned_data.fits', 
-              wasabi_path=WASABI_DIR / 'Data/Sources/')
-    FileExists(datapath=DATA_DIR, filename='Ti44_SNsurprise_3months_unbinned_data.fits', 
-              wasabi_path=WASABI_DIR / 'Data/Sources/')
+    SNe = ['CasA', 'G1903', 'SN1987A', 'SNsurprise']
+    for SN in SNe:
+        FileExists(datapath=DATA_DIR, filename=f'Ti44_{SN}_3months_unbinned_data.fits', 
+                    wasabi_path=WASABI_DIR / 'Data/Sources/')
     
     # Checking background file
     FileExists(datapath=DATA_DIR, filename='total_bg_3months_unbinned_data.fits', 
@@ -74,41 +70,20 @@ def GetBinnedData(config_file='input.yaml', parent_file=FILE_DIR / 'data/Ti44_Ca
 
 def Derived_FilesCheck():
     # Checking binned source files
-    filename = 'data/Ti44_CasA_binned.hdf5'
-    if not (FILE_DIR / filename).is_file():
-        print(f'{filename} does not exist. Deriving from vanilla file.')
-        GetBinnedData(parent_file = DATA_DIR / 'Ti44_CasA_3months_unbinned_data.fits', 
-                  output_file = FILE_DIR / 'data/Ti44_CasA_binned')
-    else:
-        print(f'{filename} exists')
-        print()
-    
-    filename = 'data/Ti44_G1903_binned.hdf5'
-    if not (FILE_DIR / filename).is_file():
-        print(f'{filename} does not exist. Deriving from vanilla file.')
-        GetBinnedData(parent_file = DATA_DIR / 'Ti44_G1903_3months_unbinned_data.fits', 
-                  output_file = FILE_DIR / 'data/Ti44_G1903_binned')
-    else:
-        print(f'{filename} exists')
-        print()
-        
-    filename = 'data/Ti44_SN1987A_binned.hdf5'
-    if not (FILE_DIR / filename).is_file():
-        print(f'{filename} does not exist. Deriving from vanilla file.')
-        GetBinnedData(parent_file = DATA_DIR / 'Ti44_SN1987A_3months_unbinned_data.fits', 
-                  output_file = FILE_DIR / 'data/Ti44_SN1987A_binned')
-    else:
-        print(f'{filename} exists')
-        print()
-        
-    filename = 'data/Ti44_SNsurprise_binned.hdf5'
-    if not (FILE_DIR / filename).is_file():
-        print(f'{filename} does not exist. Deriving from vanilla file.')
-        GetBinnedData(parent_file = DATA_DIR / 'Ti44_SNsurprise_3months_unbinned_data.fits', 
-                  output_file = FILE_DIR / 'data/Ti44_SNsurprise_binned')
-    else:
-        print(f'{filename} exists')
-        print()
+    SNe = ['CasA', 'G1903', 'SN1987A', 'SNsurprise']
+    for SN in SNe:
+        filename = f'data/Ti44_{SN}_binned.hdf5'
+        if not (FILE_DIR / filename).is_file():
+            print(f'{filename} does not exist. Deriving from vanilla file.')
+            GetBinnedData(parent_file = DATA_DIR / f'Ti44_{SN}_3months_unbinned_data.fits', 
+                    output_file = FILE_DIR / f'data/Ti44_{SN}_binned')
+            binned_signal = Histogram.open(FILE_DIR / filename)
+            signal = np.sum(binned_signal.to_dense().contents, axis=0).flatten()
+            with h5py.File(FILE_DIR / f'data/Ti44_{SN}_dense.hdf5', 'w') as hf:
+                dset = hf.create_dataset('contents', data=signal)
+        else:
+            print(f'{filename} exists')
+            print()
     
     # Checking binned background file
     filename = 'total_bg_binned_phi3.hdf5'
@@ -116,6 +91,10 @@ def Derived_FilesCheck():
         print(f'{filename} does not exist. Deriving from vanilla file.')
         GetBinnedData(parent_file = DATA_DIR / 'total_bg_3months_unbinned_data.fits', 
                   output_file = DATA_DIR / 'total_bg_binned_phi3')
+        binned_bkg = Histogram.open(DATA_DIR / filename)
+        bkg = np.sum(binned_bkg.to_dense().contents, axis=0).flatten()
+        with h5py.File(FILE_DIR / 'data/total_bg_dense.hdf5', 'w') as hf:
+            dset = hf.create_dataset('contents', data=bkg)
     else:
         print(f'{filename} exists')
         print()

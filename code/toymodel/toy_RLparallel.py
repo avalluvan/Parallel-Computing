@@ -180,7 +180,7 @@ def main():
         C_slice = np.zeros(end_col - start_col)
 
         # Calculate C slice
-        C_slice = np.dot(RT.T, d/epsilon)       # TODO: Can be GPU accelerated
+        C_slice = np.dot(RT.T, d/epsilon)
 
         '''Synchronization Barrier 3'''
         # All vector gather C slices

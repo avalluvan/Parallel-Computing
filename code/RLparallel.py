@@ -5,7 +5,6 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 import h5py
-from histpy import Histogram
 
 # Define the number of rows and columns
 NUMROWS = 184320        # TODO: Ideally, for row-major form to exploit caching, NUMROWS must be smaller than NUMCOLS
@@ -13,7 +12,7 @@ NUMCOLS = 3072
 
 # Define MPI and iteration misc variables
 MASTER = 0      # Indicates master process
-MAXITER = 200   # Maximum number of iterations
+MAXITER = 50   # Maximum number of iterations
 
 # FILE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 FILE_DIR = Path(os.path.dirname('/Users/penguin/Documents/Grad School/Research/COSI/COSIpy/docs/tutorials/44Ti/'))
@@ -59,23 +58,17 @@ def load_sky_model():
 '''
 Background model
 '''
-def load_bg_model(filename='total_bg_binned_phi3.hdf5'):
-    if type(filename) != str:
-        raise TypeError("Filename must be a string")
-    binned_bkg = Histogram.open(DATA_DIR / filename)
-    bkg = np.sum(binned_bkg.to_dense().contents, axis=0).flatten()
-    del binned_bkg
+def load_bg_model(filename='data/total_bg_dense.hdf5'):
+    with h5py.File(FILE_DIR / filename) as hf_bkg:
+        bkg = hf_bkg['contents'][:]
     return bkg
 
 '''
 Observed data
 '''
-def load_signal_counts(filename='data/Ti44_CasA_x50_binned.hdf5'):
-    if type(filename) != str:
-        raise TypeError("Filename must be a string")
-    binned_signal = Histogram.open(FILE_DIR / filename)
-    signal = np.sum(binned_signal.to_dense().contents, axis=0).flatten()     # TODO: Should this be flattened by row major (C) or column major (F)?
-    del binned_signal
+def load_signal_counts(filename='data/Ti44_CasA_x50_dense.hdf5'):
+    with h5py.File(FILE_DIR / filename) as hf_signal:
+        signal = hf_signal['contents'][:]
     return signal
 
 def main():
@@ -132,9 +125,9 @@ def main():
         # Load observed data counts
         # XXX: Only simulations give access to signal. Eventually, 
         # we will only have observed counts d and a simulated background model.
-        signal1 = load_signal_counts(filename='data/Ti44_CasA_binned.hdf5')
-        signal2 = load_signal_counts(filename='data/Ti44_G1903_binned.hdf5')
-        signal3 = load_signal_counts(filename='data/Ti44_SN1987A_binned.hdf5')
+        signal1 = load_signal_counts(filename='data/Ti44_CasA_dense.hdf5')
+        signal2 = load_signal_counts(filename='data/Ti44_G1903_dense.hdf5')
+        signal3 = load_signal_counts(filename='data/Ti44_SN1987A_dense.hdf5')
         bkg = load_bg_model()
         d = signal1 + signal2 + signal3 + bkg
 
@@ -222,7 +215,7 @@ def main():
         '''**************** All *****************'''
 
         # Calculate C slice
-        C_slice = np.dot(RT.T, d/epsilon)       # TODO: Can be GPU accelerated
+        C_slice = np.dot(RT.T, d/epsilon)
 
         '''Synchronization Barrier 3'''
         # All vector gather C slices
