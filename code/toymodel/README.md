@@ -1,4 +1,4 @@
-# MPI4py-based Parallel Implementation of the Richardson-Lucy Algorithm
+# Richardson-Lucy Toy Model
 
 ## Directory Contents
 
