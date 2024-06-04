@@ -14,7 +14,7 @@ NUMCOLS = 3072
 MASTER = 0      # Indicates master process
 MAXITER = 50   # Maximum number of iterations
 
-# FILE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 FILE_DIR = Path(os.path.dirname('/Users/penguin/Documents/Grad School/Research/COSI/COSIpy/docs/tutorials/44Ti/'))
 DATA_DIR = Path(os.path.dirname('/Users/penguin/Documents/Grad School/Research/COSI/COSIpy/docs/tutorials/data/'))
 
@@ -252,7 +252,7 @@ def main():
             print(linebreak_dashes)
 
             # Save iteration
-            np.savetxt(FILE_DIR / f'outputs/Mstep{iter}.csv', M)
+            np.savetxt(BASE_DIR / f'outputs/Mstep{iter+1}.csv', M)
 
             # MAXITER
             if iter == (MAXITER - 1):
