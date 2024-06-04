@@ -13,5 +13,5 @@ Documentation and code repository for PHYS 244: Parallel Computing
 - `cosipy` and `histpy` (optional)
 
 ## Result
-The code successfully recovers the injected signal of 3 supernovae, Cassiopeia A, G1.9+0.3 (Galactic Bulge), and SN1987A (Large Magellanic Cloud) in just 12 seconds. This is a ~20x speed-up with respect to the code in the COSIpy library, which took 3 hours 20 minutes. 
+The code successfully recovers the injected signal of 3 supernovae, Cassiopeia A, G1.9+0.3 (Galactic Bulge), and SN1987A (Large Magellanic Cloud) in just 12 seconds. This is a 1000x speed-up with respect to the code in the COSIpy library, which took 3 hours 20 minutes!
 ![image](assets/44Timap.png)

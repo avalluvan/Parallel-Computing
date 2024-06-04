@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 # Import third party libraries
 import numpy as np
 from mpi4py import MPI
@@ -11,10 +14,12 @@ NUMCOLS = 50
 MASTER = 0      # Indicates master process
 MAXITER = 10   # Maximum number of iterations
 
+FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 '''
 Response matrix
 '''
-def load_response_matrix(comm, start_row, end_row, filename='example.h5'):
+def load_response_matrix(comm, start_row, end_row, filename=os.path.join(FILE_DIR, 'example.h5')):
     with h5py.File(filename, "r", driver="mpio", comm=comm) as f1:
         # Assuming the dataset name is "response_matrix"
         dataset = f1["response_matrix"]
@@ -24,7 +29,7 @@ def load_response_matrix(comm, start_row, end_row, filename='example.h5'):
 '''
 Response matrix transpose
 '''
-def load_response_matrix_transpose(comm, start_col, end_col, filename='example.h5'):
+def load_response_matrix_transpose(comm, start_col, end_col, filename=os.path.join(FILE_DIR, 'example.h5')):
     with h5py.File(filename, "r", driver="mpio", comm=comm) as f1:
         # Assuming the dataset name is "response_matrix"
         dataset = f1["response_matrix"]
@@ -34,7 +39,7 @@ def load_response_matrix_transpose(comm, start_col, end_col, filename='example.h
 '''
 Response matrix summed along axis=i
 '''
-def load_axis0_summed_response_matrix(filename='example_axis0_summed.h5'):
+def load_axis0_summed_response_matrix(filename=os.path.join(FILE_DIR, 'example_axis0_summed.h5')):
     with h5py.File(filename, "r") as f2:
         # Assuming the dataset name is "response_vector"
         dataset = f2["response_vector"]
