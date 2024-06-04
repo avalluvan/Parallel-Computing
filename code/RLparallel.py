@@ -251,6 +251,9 @@ def main():
             print(f"Done")
             print(linebreak_dashes)
 
+            # Save iteration
+            np.savetxt(FILE_DIR / f'outputs/Mstep{iter}.csv', M)
+
             # MAXITER
             if iter == (MAXITER - 1):
                 print(f'Reached maximum iterations = {MAXITER}')
@@ -266,8 +269,6 @@ def main():
         print(np.round(M.max(), 5))
         print(np.sum(M))
         print()
-
-        np.savetxt('convergedM.csv', M)
 
     # MPI Shutdown
     MPI.Finalize()
