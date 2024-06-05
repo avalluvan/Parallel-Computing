@@ -59,7 +59,7 @@ def FileCheck():
     
     return 0
 
-def GetBinnedData(config_file='input.yaml', parent_file=FILE_DIR / 'data/Ti44_CasA_3months_unbinned_data.fits', 
+def GetBinnedData(config_file=FILE_DIR / 'input.yaml', parent_file=FILE_DIR / 'data/Ti44_CasA_3months_unbinned_data.fits', 
               output_file=FILE_DIR / 'data/Ti44_CasA_binned'):
     # Create BinnedData object, read unbinned 
     # data, and write binned data to disk
@@ -101,25 +101,25 @@ def Derived_FilesCheck():
         
     return 0
 
-def FormattedResponse_FilesCheck():
+def FormattedResponse_FilesCheck(response_file = 'psr_gal_Ti44_E_1150_1164keV_DC2.h5', 
+                                 flattened_response_file = 'psr_gal_flattened_Ti44_E_1150_1164keV_DC2.h5'):
     # Checking flattened response file
-    response_file = 'psr_gal_flattened_Ti44_E_1150_1164keV_DC2.h5'
-    if not (DATA_DIR / response_file).is_file():
-        print(f'{response_file} flattened response file does not exist. Creating from raw file.')
+    if not (DATA_DIR / flattened_response_file).is_file():
+        print(f'{flattened_response_file} flattened response file does not exist. Creating from raw file.')
 
         # Open parent file
-        hf = h5py.File(DATA_DIR / 'psr_gal_Ti44_E_1150_1164keV_DC2.h5', 'r')
+        hf = h5py.File(DATA_DIR / response_file, 'r')
         group = hf['hist']
         dset = group['contents']
 
         # New file properties
         old_shape = dset.shape
-        NUMROWS = np.prod(old_shape[:2] - 2)
-        NUMCOLS = np.prod(old_shape[2:] - 2)
-        new_shape = (NUMROWS, NUMCOLS)
+        NUMROWS = np.prod(np.array(old_shape[:2]) - 2)
+        NUMCOLS = np.prod(np.array(old_shape[2:]) - 2)
+        new_shape = (NUMCOLS, NUMROWS)
 
         # Create flatted response file
-        with h5py.File(DATA_DIR / response_file, 'w') as output_file:
+        with h5py.File(DATA_DIR / flattened_response_file, 'w') as output_file:
             dset1 = output_file.create_dataset('response_matrix', data=np.transpose(dset[1:-1, 1, 1, 1:-1, 1:-1], (1,2, 0)).reshape(new_shape))
             print(dset1.shape)
             dset2 = output_file.create_dataset('response_vector', data=np.sum(dset1, axis=0))
@@ -129,7 +129,7 @@ def FormattedResponse_FilesCheck():
         hf.close()
 
     else:
-        print(f'{response_file} flattened response file exists')
+        print(f'{flattened_response_file} flattened response file exists')
         print()
 
     return 0
