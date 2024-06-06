@@ -98,8 +98,8 @@ def main():
 
     # Load R and RT into memory (single time if response matrix doesn't 
     # change with time)
-    R = load_response_matrix(comm, start_row, end_row, filename='psr_gal_flattened_511_DC2.h5')
-    RT = load_response_matrix_transpose(comm, start_col, end_col, filename='psr_gal_flattened_511_DC2.h5')
+    R = load_response_matrix(comm, start_row, end_row)#, filename='psr_gal_flattened_511_DC2.h5')
+    RT = load_response_matrix_transpose(comm, start_col, end_col)#, filename='psr_gal_flattened_511_DC2.h5')
 
     # Initialise epsilon_slice and C_slice
     epsilon_slice = np.zeros(end_row - start_row)
@@ -117,7 +117,7 @@ def main():
         linebreak_dashes = '----------------------'
 
         # Load Rj vector (response matrix summed along axis=i)
-        Rj = load_axis0_summed_response_matrix(filename='psr_gal_flattened_511_DC2.h5')
+        Rj = load_axis0_summed_response_matrix()#filename='psr_gal_flattened_511_DC2.h5')
 
         # Load sky model input
         M = load_sky_model()
@@ -125,14 +125,14 @@ def main():
         # Load observed data counts
         # XXX: Only simulations give access to signal. Eventually, 
         # we will only have observed counts d and a simulated background model.
-        # signal1 = load_signal_counts(filename='data/Ti44_CasA_dense.hdf5')
-        # signal2 = load_signal_counts(filename='data/Ti44_G1903_dense.hdf5')
-        # signal3 = load_signal_counts(filename='data/Ti44_SN1987A_dense.hdf5')
-        # bkg = load_bg_model()
-        # d = signal1 + signal2 + signal3 + bkg
-        signal = load_signal_counts(filename='data/511_thin_disk_dense.h5')
-        bkg = load_bg_model(filename='data/albedo_bg_dense.h5')
-        d = signal + bkg
+        signal1 = load_signal_counts(filename='data/Ti44_CasA_dense.hdf5')
+        signal2 = load_signal_counts(filename='data/Ti44_G1903_dense.hdf5')
+        signal3 = load_signal_counts(filename='data/Ti44_SN1987A_dense.hdf5')
+        bkg = load_bg_model()
+        d = signal1 + signal2 + signal3 + bkg
+        # signal = load_signal_counts(filename='data/511_thin_disk_dense.h5')
+        # bkg = load_bg_model(filename='data/albedo_bg_dense.h5')
+        # d = signal + bkg
 
         # Sanity check: print d
         print()

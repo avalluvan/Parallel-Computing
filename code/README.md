@@ -15,12 +15,81 @@ Richardson-Lucy is abbreviated to RL.
 - `h5py` with parallel read access enabled. It is enabled by default in the standard installation [[source](https://docs.h5py.org/en/latest/mpi.html)]. 
 - `cosipy` and `histpy` are required to run [datapreprocessing.py](code/datapreprocessing.py). The main function does not require these libraries.
 
-## Execution
+## Executing on Expanse
+
+The data preprocessing step has not been set up to run out-of-the-box. 
+The user must exploit the increased read/write speeds from the lustre 
+filesystem on Expanse by predefining the stripe length of the data directory. 
+The user should also modify file paths `BASE_DIR` and `DATA_DIR` appropriately. 
+
+### Required source and response files
+
+The following files are required for,
+1. $^{44}Ti$ from supernova remnants:
+    - response matrix: psr_gal_flattened_Ti44_E_1150_1164keV_DC2.h5
+    - background model: total_bg_dense.hdf5
+    - at least one signal: Ti44_CasA_dense.hdf5, Ti44_G1903_dense.hdf5, Ti44_SN1987A_dense.hdf5
+2. Positron annihilation:
+    - response matrix: psr_gal_flattened_511_DC2.h5
+    - background model: albedo_bg_dense.h5 or total_bg_dense.hdf5
+    - signal: 511_thin_disk_dense.h5
+
+More data files are available on the Wasabi server. Their download links can be found [here](https://github.com/cositools/cosi-data-challenge-2/).
+
+### Downloading the required files
+
+Running `datapreprocessing.py` should at least download all the files, even
+if it does not sufficiently preprocess them. The code seems to suffer from the 
+inability to load very large files onto `numpy` arrays. One may go through each step 
+one-by-one to perform the appropriate data binning, flatten the multidimensional 
+quantities, and obtain each file in the "dense" representation. 
+
+Note that `datapreprocessing.py` employs `cosipy` as a dependency. The installation page is available
+[here](https://cositools.github.io/cosipy/install.html). If you have `pip`, it can
+be set up very easily via,
+```
+$ pip install cosipy
+$ python3 datapreprocessing.py
+```
+
+### Moving the files to the Lustre filesystem
+
+```
+$ cd /expanse/lustre/scratch/$USER/temp_project     # go to the Lustre filesystem directory
+$ mkdir data                                        # make a new directory for organizational purposes
+$ lfs setstripe -c 16 data/                         # set the stripe size of the new directory to 16. See the lecture on DataManagement_ML_2023.pdf by Dr. Mahidar Tatineni for more information.
+$ cd data                                           
+$ cp ~/path/to/downloaded/data/ .                   # copy the downloaded files into the new directory
+```
+
+### Actual execution
+
+It is recommended to run these codes interactively,
+```
+$ cd /expanse/lustre/scratch/$USER/temp_project
+$ salloc --nodes=1 --ntasks-per-node=32 --mem=64G -A csd759 -t 0:30:00 -p shared    # request for node allocation
+$ module reset                                                                      # reset your environment and load the required modules. Thank you Dr. Tatineni!
+$ module load gcc/10.2.0
+$ module load openmpi/4.1.3
+$ module load python/3.8.12
+$ module load py-mpi4py/3.1.2
+$ module load hdf5/1.10.7
+$ module load py-numpy/1.20.3
+$ module load py-h5py/3.4.0
+$ mpiexec -n 16 python ~/Richardson-Lucy/code/RLparallel.py                 		# works when required preprocessed data are available (suffix “_dense.h5”) and DATA_DIR is appropriately set
+```
+If you wish to run the code by scheduling a job, 
+```
+$ srun --nodes=1 --ntasks-per-node=32 --mem=64G -A csd759 -p shared -t 00:30:00 mpiexec ~/Richardson-Lucy/code/RLparallel.py
+```
+
+## Executing on a Personal Computer
 
 To execute the pipeline on a local computer, ensure that the h5py installation in your python environment supports parallel read access. 
+It is recommended to use a computer with at least 16 GB RAM.
 ```
 $ conda activate <venv>       # activate your python environment
-$ export TMPDIR=/tmp          # truncation can occur on MacOS with the default TMPDIR
+$ export TMPDIR=/tmp          # truncation can occur on MacOS with the default TMPDIR. I am not aware if a similar step is required in other OSes.
 $ python3 datapreprocessing.py                  # to check if all file dependencies are satisfied or download them
 $ mpiexec -n <numproc> python RLparallel.py     # run the code with the intended number of nodes
 ```
