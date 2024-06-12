@@ -14,8 +14,8 @@ NUMCOLS = 3072
 MASTER = 0      # Indicates master process
 MAXITER = 50   # Maximum number of iterations
 
-BASE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
-FILE_DIR = Path('/Users/penguin/Documents/Grad School/Research/COSI/COSIpy/docs/tutorials/44Ti/')
+FILE_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = Path('/Users/penguin/Documents/Grad School/Research/COSI/COSIpy/docs/tutorials/44Ti/')
 DATA_DIR = Path('/Users/penguin/Documents/Grad School/Research/COSI/COSIpy/docs/tutorials/data/')
 
 '''
@@ -51,7 +51,7 @@ def load_axis0_summed_response_matrix(filename='psr_gal_flattened_Ti44_E_1150_11
 '''
 Sky model
 '''
-def load_sky_model():
+def initial_sky_model():
     M0 = np.ones(NUMCOLS, dtype=np.float64) * 1e-4                 # Initial guess according to image_deconvolution.py
     return M0
 
@@ -59,7 +59,7 @@ def load_sky_model():
 Background model
 '''
 def load_bg_model(filename='data/total_bg_dense.hdf5'):
-    with h5py.File(FILE_DIR / filename) as hf_bkg:
+    with h5py.File(BASE_DIR / filename) as hf_bkg:
         bkg = hf_bkg['contents'][:]
     return bkg
 
@@ -67,7 +67,7 @@ def load_bg_model(filename='data/total_bg_dense.hdf5'):
 Observed data
 '''
 def load_signal_counts(filename='data/Ti44_CasA_x50_dense.hdf5'):
-    with h5py.File(FILE_DIR / filename) as hf_signal:
+    with h5py.File(BASE_DIR / filename) as hf_signal:
         signal = hf_signal['contents'][:]
     return signal
 
@@ -98,8 +98,8 @@ def main():
 
     # Load R and RT into memory (single time if response matrix doesn't 
     # change with time)
-    R = load_response_matrix(comm, start_row, end_row)#, filename='psr_gal_flattened_511_DC2.h5')
-    RT = load_response_matrix_transpose(comm, start_col, end_col)#, filename='psr_gal_flattened_511_DC2.h5')
+    R = load_response_matrix(comm, start_row, end_row, filename='psr_gal_flattened_511_DC2.h5')
+    RT = load_response_matrix_transpose(comm, start_col, end_col, filename='psr_gal_flattened_511_DC2.h5')
 
     # Initialise epsilon_slice and C_slice
     epsilon_slice = np.zeros(end_row - start_row)
@@ -117,28 +117,28 @@ def main():
         linebreak_dashes = '----------------------'
 
         # Load Rj vector (response matrix summed along axis=i)
-        Rj = load_axis0_summed_response_matrix()#filename='psr_gal_flattened_511_DC2.h5')
+        Rj = load_axis0_summed_response_matrix(filename='psr_gal_flattened_511_DC2.h5')
 
         # Load sky model input
-        M = load_sky_model()
+        M = initial_sky_model()
 
         # Load observed data counts
         # XXX: Only simulations give access to signal. Eventually, 
         # we will only have observed counts d and a simulated background model.
-        signal1 = load_signal_counts(filename='data/Ti44_CasA_dense.hdf5')
-        signal2 = load_signal_counts(filename='data/Ti44_G1903_dense.hdf5')
-        signal3 = load_signal_counts(filename='data/Ti44_SN1987A_dense.hdf5')
-        bkg = load_bg_model()
-        d = signal1 + signal2 + signal3 + bkg
-        # signal = load_signal_counts(filename='data/511_thin_disk_dense.h5')
-        # bkg = load_bg_model(filename='data/albedo_bg_dense.h5')
-        # d = signal + bkg
+        # signal1 = load_signal_counts(filename='data/Ti44_CasA_dense.hdf5')
+        # signal2 = load_signal_counts(filename='data/Ti44_G1903_dense.hdf5')
+        # signal3 = load_signal_counts(filename='data/Ti44_SN1987A_dense.hdf5')
+        # bkg = load_bg_model()
+        # d = signal1 + signal2 + signal3 + bkg
+        signal = load_signal_counts(filename='data/511_thin_disk_dense.h5')
+        bkg = load_bg_model(filename='data/albedo_bg_dense.h5')
+        d = signal + bkg
 
         # Sanity check: print d
         print()
         print('Observed data-space d vector:')
         print(d)
-        print(d.min(), d.max())
+        # print(d.min(), d.max())
         ## Pretty print
         print()
         print(linebreak_stars)
@@ -255,7 +255,7 @@ def main():
             print(linebreak_dashes)
 
             # Save iteration
-            # np.savetxt(BASE_DIR / f'outputs/Mstep{iter+1}.csv', M)
+            # np.savetxt(FILE_DIR / f'outputs/Mstep{iter+1}.csv', M)
 
             # MAXITER
             if iter == (MAXITER - 1):
@@ -274,7 +274,7 @@ def main():
         print()
 
         # Save final output
-        np.savetxt(BASE_DIR / f'outputs/ConvergedM511.csv', M)
+        # np.savetxt(FILE_DIR / f'outputs/ConvergedM.csv', M)
 
     # MPI Shutdown
     MPI.Finalize()
